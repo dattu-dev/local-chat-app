@@ -1,4 +1,4 @@
-﻿<Window x:Class="ChatClient.MainWindow"
+<Window x:Class="ChatClient.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Chat Client"
@@ -8,6 +8,8 @@
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
         <Style TargetType="Button">
             <Setter Property="Background" Value="#4F8CFF"/>
             <Setter Property="Foreground" Value="White"/>
@@ -56,14 +58,12 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
-                    <TextBlock Text="Chat Application"
+                    <TextBlock Text="Chat App - Group 5"
                                Foreground="#1F2937"
                                FontSize="26"
                                FontWeight="Bold"/>
 
-                    <TextBlock Text="Console Server + WPF Client"
-                               Foreground="#6B7280"
-                               FontSize="13"/>
+        
                 </StackPanel>
 
                 <TextBlock x:Name="StatusTextBlock"
@@ -115,17 +115,24 @@
                                    Foreground="#374151"
                                    Margin="0,0,0,5"
                                    FontWeight="SemiBold"/>
-
                         <TextBox x:Name="ServerIpTextBox"
                                  Width="150"
                                  Text="127.0.0.1"/>
                     </StackPanel>
-
-                    <Button Content="Connect"
+                    <Button x:Name="ConnectButton"
+                            Content="Connect"
                             Width="110"
                             Height="42"
                             VerticalAlignment="Bottom"
                             Click="ConnectButton_Click"/>
+                    <Button x:Name="DisconnectButton"
+                            Content="Disconnect"
+                            Width="110"
+                            Height="42"
+                            Background="#EF4444"
+                            IsEnabled="False"
+                            VerticalAlignment="Bottom"
+                            Click="DisconnectButton_Click"/>
                 </StackPanel>
 
                 <!-- Chat Box -->
@@ -141,84 +148,65 @@
                              BorderThickness="0"
                              Foreground="#111827"
                              FontSize="16"
-                             FontFamily="Segoe UI Emoji"/>
+                             FontFamily="Segoe UI Emoji"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{Binding BackgroundColor}"
+                                        Padding="10,8"
+                                        Margin="0,5"
+                                        CornerRadius="12"
+                                        HorizontalAlignment="{Binding Alignment}"
+                                        MaxWidth="400">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Text}" 
+                                                   Foreground="{Binding TextColor}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding HasText, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <Image Source="{Binding ImageSource}" 
+                                               MaxWidth="300" 
+                                               MaxHeight="300" 
+                                               Margin="0,5,0,0"
+                                               Cursor="Hand"
+                                               MouseLeftButtonDown="Image_MouseLeftButtonDown"
+                                               Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <Button Content="{Binding FileName}"
+                                                Tag="{Binding FilePath}"
+                                                Click="FileDownload_Click"
+                                                Margin="0,5,0,0"
+                                                Padding="10,5"
+                                                Background="#E5E7EB"
+                                                Foreground="#1F2937"
+                                                BorderThickness="1"
+                                                BorderBrush="#D1D5DB"
+                                                Cursor="Hand"
+                                                Visibility="{Binding HasFile, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                        <!-- Transfer Progress UI -->
+                                        <Grid Margin="0,5,0,0" Visibility="{Binding IsTransferring, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="📄" FontSize="32" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FileName}" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="250" />
+                                                <Grid Margin="0,5,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ProgressBar Grid.Column="0" Height="8" Minimum="0" Maximum="100" Value="{Binding ProgressPercentage}" VerticalAlignment="Center" Foreground="#4F8CFF" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding ProgressText}" FontSize="11" Foreground="Gray" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Border>
-            </Grid>
-        </Border>
-
-        <!-- Emoji Area -->
-        <Border Grid.Row="2"
-                Background="#FFFFFF"
-                CornerRadius="15"
-                Padding="10"
-                Margin="0,0,0,15">
-
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="10"
-                                  ShadowDepth="2"
-                                  Opacity="0.10"/>
-            </Border.Effect>
-
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Text="Emoji:"
-                           Foreground="#374151"
-                           VerticalAlignment="Top"
-                           FontWeight="SemiBold"
-                           Margin="0,8,12,0"/>
-
-                <ScrollViewer Grid.Column="1"
-                              HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
-
-                    <WrapPanel>
-                        <Button Content="😀" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😃" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😄" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😁" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😂" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🤣" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😊" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😍" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😘" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😎" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-
-                        <Button Content="👍" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="👎" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="👏" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🙌" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🙏" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💪" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-
-                        <Button Content="❤️" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🧡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💛" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💚" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💙" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💜" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-
-                        <Button Content="🔥" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="✨" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🎉" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💯" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💀" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😭" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🤔" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="😴" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🤡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-
-                        <Button Content="📌" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="📚" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="💻" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="🎮" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                        <Button Content="☕" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                    </WrapPanel>
-                </ScrollViewer>
             </Grid>
         </Border>
 
@@ -235,24 +223,197 @@
             </Border.Effect>
 
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <TextBox x:Name="MessageTextBox"
-                         Height="42"
-                         FontSize="16"
-                         FontFamily="Segoe UI Emoji"
-                         VerticalContentAlignment="Center"
-                         KeyDown="MessageTextBox_KeyDown"/>
+                <ItemsControl x:Name="PendingAttachmentsControl" Grid.Row="0" Margin="0,0,0,5" Visibility="Collapsed">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,10,10" CornerRadius="8" BorderThickness="1" BorderBrush="#D6DCE8" Background="#F9FAFB" Padding="4">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" Visibility="{Binding IsImage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <Image Source="{Binding DisplayIcon}" Width="60" Height="60" Stretch="UniformToFill" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Vertical" Width="60" Height="60" Background="#E5E7EB" Visibility="{Binding IsImage, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverted}">
+                                        <TextBlock Text="📄" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,0"/>
+                                        <TextBlock Text="{Binding FileName}" FontSize="10" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" HorizontalAlignment="Center" ToolTip="{Binding FileName}" Margin="2,0"/>
+                                    </StackPanel>
+                                    <Button Content="✕" 
+                                            Click="RemovePendingAttachment_Click" 
+                                            Tag="{Binding}"
+                                            HorizontalAlignment="Right" 
+                                            VerticalAlignment="Top" 
+                                            Margin="0,-5,-5,0"
+                                            Width="20" Height="20"
+                                            Background="#EF4444"
+                                            Foreground="White"
+                                            FontSize="10"
+                                            Cursor="Hand"
+                                            Padding="0"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox x:Name="MessageTextBox"
+                             Height="42"
+                             FontSize="16"
+                             FontFamily="Segoe UI Emoji"
+                             VerticalContentAlignment="Center"
+                             KeyDown="MessageTextBox_KeyDown"/>
 
                 <Button Grid.Column="1"
+                        Content="📎"
+                        FontFamily="Segoe UI Emoji"
+                        FontSize="20"
+                        Width="42"
+                        Height="42"
+                        Margin="5,0,0,0"
+                        Padding="0"
+                        Background="Transparent"
+                        Foreground="#374151"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="FileButton_Click"/>
+
+                <Button Grid.Column="2"
+                        Content="📷"
+                        FontFamily="Segoe UI Emoji"
+                        FontSize="20"
+                        Width="42"
+                        Height="42"
+                        Margin="0,0,0,0"
+                        Padding="0"
+                        Background="Transparent"
+                        Foreground="#374151"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="ImageButton_Click"/>
+
+                <ToggleButton x:Name="EmojiToggleButton"
+                              Grid.Column="3"
+                              Content="😀"
+                              FontFamily="Segoe UI Emoji"
+                              FontSize="20"
+                              Width="42"
+                              Height="42"
+                              Margin="5,0,5,0"
+                              Padding="0"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Cursor="Hand"/>
+
+                <Popup IsOpen="{Binding IsChecked, ElementName=EmojiToggleButton}"
+                       StaysOpen="False"
+                       PlacementTarget="{Binding ElementName=EmojiToggleButton}"
+                       Placement="Top"
+                       AllowsTransparency="True">
+                    <Border Background="#FFFFFF"
+                            CornerRadius="10"
+                            Padding="10"
+                            Margin="0,0,0,10"
+                            BorderBrush="#D6DCE8"
+                            BorderThickness="1"
+                            MaxHeight="200"
+                            Width="250">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.15"/>
+                        </Border.Effect>
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <WrapPanel>
+                                <Button Content="😀" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😃" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😄" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😁" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😂" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🤣" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😊" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😍" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😘" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😎" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+
+                                <Button Content="👍" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="👎" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="👏" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🙌" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🙏" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💪" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+
+                                <Button Content="❤️" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🧡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💛" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💚" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💙" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💜" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+
+                                <Button Content="🔥" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="✨" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🎉" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💯" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💀" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😭" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🤔" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="😴" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🤡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+
+                                <Button Content="📌" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="📚" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="💻" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="🎮" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Content="☕" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                            </WrapPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
+
+                <Button Grid.Column="4"
                         Content="Send"
                         Width="100"
                         Height="42"
                         Click="SendButton_Click"/>
-            </Grid>
-        </Border>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+        <!-- Fullscreen Image Overlay -->
+        <Grid x:Name="ImageOverlay"
+              Grid.RowSpan="4"
+              Background="#CC000000"
+              Visibility="Collapsed"
+              MouseLeftButtonDown="ImageOverlay_MouseLeftButtonDown">
+            <Image x:Name="FullscreenImage"
+                   Margin="40"
+                   Stretch="Uniform"/>
+            <Button Content="✕"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="20"
+                    Width="40" Height="40"
+                    Background="Transparent"
+                    Foreground="White"
+                    FontSize="24"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    Click="CloseOverlay_Click"/>
+        </Grid>
     </Grid>
 </Window>

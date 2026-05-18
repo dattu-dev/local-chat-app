@@ -77,7 +77,15 @@ class Program
                 if (message == null)
                     break;
 
-                Console.WriteLine(message);
+                if (message.Length > 200)
+                {
+                    Console.WriteLine(message.Substring(0, 100) + "... [Message too long, truncated]");
+                }
+                else
+                {
+                    Console.WriteLine(message);
+                }
+
                 await Broadcast(message, client);
             }
         }
@@ -103,8 +111,12 @@ class Program
                 if (client.Connected)
                 {
                     NetworkStream stream = client.GetStream();
-                    await stream.WriteAsync(buffer, 0, buffer.Length);
-                    await stream.FlushAsync();
+                    // Use lock to ensure thread safety when broadcasting parallel file chunks
+                    lock (client)
+                    {
+                        stream.Write(buffer, 0, buffer.Length);
+                        stream.Flush();
+                    }
                 }
             }
             catch
