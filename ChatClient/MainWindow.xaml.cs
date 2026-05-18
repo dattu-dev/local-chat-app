@@ -669,7 +669,6 @@ namespace ChatClient
                 MessageTextBox.Text += button.Content.ToString();
                 MessageTextBox.Focus();
                 MessageTextBox.CaretIndex = MessageTextBox.Text.Length;
-                EmojiToggleButton.IsChecked = false;
             }
         }
 
