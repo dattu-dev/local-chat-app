@@ -280,7 +280,7 @@
                              KeyDown="MessageTextBox_KeyDown"/>
 
                 <Button Grid.Column="1"
-                        Content="📎"
+                        Content="➕"
                         FontFamily="Segoe UI Emoji"
                         FontSize="20"
                         Width="42"
@@ -291,6 +291,7 @@
                         Foreground="#374151"
                         BorderThickness="0"
                         Cursor="Hand"
+                        ToolTip="Attach File"
                         Click="FileButton_Click"/>
 
                 <Button Grid.Column="2"
@@ -305,6 +306,7 @@
                         Foreground="#374151"
                         BorderThickness="0"
                         Cursor="Hand"
+                        ToolTip="Upload Image"
                         Click="ImageButton_Click"/>
 
                 <ToggleButton x:Name="EmojiToggleButton"
@@ -318,7 +320,8 @@
                               Padding="0"
                               Background="Transparent"
                               BorderThickness="0"
-                              Cursor="Hand"/>
+                              Cursor="Hand"
+                              ToolTip="Emoji"/>
 
                 <Popup IsOpen="{Binding IsChecked, ElementName=EmojiToggleButton}"
                        StaysOpen="False"

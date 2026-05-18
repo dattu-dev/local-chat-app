@@ -20,7 +20,7 @@ namespace ChatClient
         public string FilePath { get; set; } = string.Empty;
         public string FileName => System.IO.Path.GetFileName(FilePath);
         public bool IsImage { get; set; }
-        public string DisplayIcon => IsImage ? FilePath : "pack://application:,,,/ChatClient;component/file_icon.png";
+        public string DisplayIcon => IsImage ? FilePath : null;
     }
 
     public class ChatMessageItem : System.ComponentModel.INotifyPropertyChanged
@@ -33,7 +33,7 @@ namespace ChatClient
         }
         public bool HasText => !string.IsNullOrEmpty(Text);
 
-        private string _imageSource = string.Empty;
+        private string _imageSource = null;
         public string ImageSource
         {
             get => _imageSource;
@@ -279,6 +279,21 @@ namespace ChatClient
                     }
                     else
                     {
+                        if (!string.IsNullOrWhiteSpace(message))
+                        {
+                            string fullMessage = $"[{time}] {username}: {message}";
+                            await sendSemaphore.WaitAsync();
+                            try
+                            {
+                                await writer.WriteLineAsync(fullMessage);
+                                await writer.FlushAsync();
+                            }
+                            finally
+                            {
+                                sendSemaphore.Release();
+                            }
+                        }
+
                         var fileTasks = new System.Collections.Generic.List<Task>();
                         for (int i = 0; i < imagesToSend.Count; i++)
                         {
@@ -292,8 +307,8 @@ namespace ChatClient
                                 int chunkSize = 512 * 1024; // 512 KB
                                 int totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
 
-                                string txt = (currentIndex == 0) ? message : "";
-                                string fullMsgText = $"[{time}] {username}: {txt}";
+                                string txt = "";
+                                string fullMsgText = $"[{time}] {username}: ";
 
                                 // Notify start
                                 await sendSemaphore.WaitAsync();
@@ -529,8 +544,7 @@ namespace ChatClient
                     bool isImageMessage = message.StartsWith("[IMAGE] ");
                     bool isFileMessage = message.StartsWith("[FILE] ");
 
-                    // Decode big files in background
-                    _ = Task.Run(() =>
+                    Action processMessageAction = () =>
                     {
                         try
                         {
@@ -622,7 +636,17 @@ namespace ChatClient
                         {
                             Dispatcher.Invoke(() => AddSystemMessage("Error parsing message: " + ex.Message));
                         }
-                    });
+                    };
+
+                    if (isImageMessage || isFileMessage)
+                    {
+                        // Decode big files in background
+                        _ = Task.Run(processMessageAction);
+                    }
+                    else
+                    {
+                        processMessageAction();
+                    }
                 }
             }
             catch (Exception ex)
