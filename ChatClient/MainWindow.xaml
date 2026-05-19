@@ -1,6 +1,8 @@
 <Window x:Class="ChatClient.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        xmlns:local="clr-namespace:ChatClient"
         Title="Chat Client"
         Height="600"
         Width="850"
@@ -9,6 +11,7 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:StringToImageSourceConverter x:Key="StringToImageSourceConverter"/>
 
         <Style TargetType="Button">
             <Setter Property="Background" Value="#4F8CFF"/>
@@ -159,11 +162,11 @@
                                         HorizontalAlignment="{Binding Alignment}"
                                         MaxWidth="400">
                                     <StackPanel>
-                                        <TextBlock Text="{Binding Text}" 
+                                        <emoji:TextBlock Text="{Binding Text}" 
                                                    Foreground="{Binding TextColor}"
                                                    TextWrapping="Wrap"
                                                    Visibility="{Binding HasText, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                        <Image Source="{Binding ImageSource}" 
+                                        <Image Source="{Binding ImageSource, Converter={StaticResource StringToImageSourceConverter}}" 
                                                MaxWidth="300" 
                                                MaxHeight="300" 
                                                Margin="0,5,0,0"
@@ -272,10 +275,14 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBox x:Name="MessageTextBox"
+                    <emoji:RichTextBox x:Name="MessageTextBox"
                              Height="42"
                              FontSize="16"
-                             FontFamily="Segoe UI Emoji"
+                             Background="White"
+                             Foreground="#222222"
+                             BorderBrush="#D6DCE8"
+                             BorderThickness="1"
+                             Padding="8"
                              VerticalContentAlignment="Center"
                              KeyDown="MessageTextBox_KeyDown"/>
 
@@ -311,9 +318,6 @@
 
                 <ToggleButton x:Name="EmojiToggleButton"
                               Grid.Column="3"
-                              Content="😀"
-                              FontFamily="Segoe UI Emoji"
-                              FontSize="20"
                               Width="42"
                               Height="42"
                               Margin="5,0,5,0"
@@ -321,7 +325,9 @@
                               Background="Transparent"
                               BorderThickness="0"
                               Cursor="Hand"
-                              ToolTip="Emoji"/>
+                              ToolTip="Emoji">
+                    <emoji:TextBlock Text="😀" FontSize="20"/>
+                </ToggleButton>
 
                 <Popup IsOpen="{Binding IsChecked, ElementName=EmojiToggleButton}"
                        StaysOpen="False"
@@ -342,47 +348,47 @@
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Auto">
                             <WrapPanel>
-                                <Button Content="😀" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😃" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😄" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😁" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😂" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🤣" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😊" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😍" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😘" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😎" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Tag="😀" Click="EmojiButton_Click"><emoji:TextBlock Text="😀" FontSize="20"/></Button>
+                                <Button Tag="😃" Click="EmojiButton_Click"><emoji:TextBlock Text="😃" FontSize="20"/></Button>
+                                <Button Tag="😄" Click="EmojiButton_Click"><emoji:TextBlock Text="😄" FontSize="20"/></Button>
+                                <Button Tag="😁" Click="EmojiButton_Click"><emoji:TextBlock Text="😁" FontSize="20"/></Button>
+                                <Button Tag="😂" Click="EmojiButton_Click"><emoji:TextBlock Text="😂" FontSize="20"/></Button>
+                                <Button Tag="🤣" Click="EmojiButton_Click"><emoji:TextBlock Text="🤣" FontSize="20"/></Button>
+                                <Button Tag="😊" Click="EmojiButton_Click"><emoji:TextBlock Text="😊" FontSize="20"/></Button>
+                                <Button Tag="😍" Click="EmojiButton_Click"><emoji:TextBlock Text="😍" FontSize="20"/></Button>
+                                <Button Tag="😘" Click="EmojiButton_Click"><emoji:TextBlock Text="😘" FontSize="20"/></Button>
+                                <Button Tag="😎" Click="EmojiButton_Click"><emoji:TextBlock Text="😎" FontSize="20"/></Button>
 
-                                <Button Content="👍" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="👎" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="👏" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🙌" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🙏" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💪" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Tag="👍" Click="EmojiButton_Click"><emoji:TextBlock Text="👍" FontSize="20"/></Button>
+                                <Button Tag="👎" Click="EmojiButton_Click"><emoji:TextBlock Text="👎" FontSize="20"/></Button>
+                                <Button Tag="👏" Click="EmojiButton_Click"><emoji:TextBlock Text="👏" FontSize="20"/></Button>
+                                <Button Tag="🙌" Click="EmojiButton_Click"><emoji:TextBlock Text="🙌" FontSize="20"/></Button>
+                                <Button Tag="🙏" Click="EmojiButton_Click"><emoji:TextBlock Text="🙏" FontSize="20"/></Button>
+                                <Button Tag="💪" Click="EmojiButton_Click"><emoji:TextBlock Text="💪" FontSize="20"/></Button>
 
-                                <Button Content="❤️" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🧡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💛" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💚" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💙" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💜" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Tag="❤️" Click="EmojiButton_Click"><emoji:TextBlock Text="❤️" FontSize="20"/></Button>
+                                <Button Tag="🧡" Click="EmojiButton_Click"><emoji:TextBlock Text="🧡" FontSize="20"/></Button>
+                                <Button Tag="💛" Click="EmojiButton_Click"><emoji:TextBlock Text="💛" FontSize="20"/></Button>
+                                <Button Tag="💚" Click="EmojiButton_Click"><emoji:TextBlock Text="💚" FontSize="20"/></Button>
+                                <Button Tag="💙" Click="EmojiButton_Click"><emoji:TextBlock Text="💙" FontSize="20"/></Button>
+                                <Button Tag="💜" Click="EmojiButton_Click"><emoji:TextBlock Text="💜" FontSize="20"/></Button>
 
-                                <Button Content="🔥" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="✨" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🎉" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💯" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💀" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😭" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🤔" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="😴" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🤡" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Tag="🔥" Click="EmojiButton_Click"><emoji:TextBlock Text="🔥" FontSize="20"/></Button>
+                                <Button Tag="✨" Click="EmojiButton_Click"><emoji:TextBlock Text="✨" FontSize="20"/></Button>
+                                <Button Tag="🎉" Click="EmojiButton_Click"><emoji:TextBlock Text="🎉" FontSize="20"/></Button>
+                                <Button Tag="💯" Click="EmojiButton_Click"><emoji:TextBlock Text="💯" FontSize="20"/></Button>
+                                <Button Tag="💀" Click="EmojiButton_Click"><emoji:TextBlock Text="💀" FontSize="20"/></Button>
+                                <Button Tag="😭" Click="EmojiButton_Click"><emoji:TextBlock Text="😭" FontSize="20"/></Button>
+                                <Button Tag="😡" Click="EmojiButton_Click"><emoji:TextBlock Text="😡" FontSize="20"/></Button>
+                                <Button Tag="🤔" Click="EmojiButton_Click"><emoji:TextBlock Text="🤔" FontSize="20"/></Button>
+                                <Button Tag="😴" Click="EmojiButton_Click"><emoji:TextBlock Text="😴" FontSize="20"/></Button>
+                                <Button Tag="🤡" Click="EmojiButton_Click"><emoji:TextBlock Text="🤡" FontSize="20"/></Button>
 
-                                <Button Content="📌" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="📚" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="💻" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="🎮" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
-                                <Button Content="☕" FontFamily="Segoe UI Emoji" FontSize="20" Click="EmojiButton_Click"/>
+                                <Button Tag="📌" Click="EmojiButton_Click"><emoji:TextBlock Text="📌" FontSize="20"/></Button>
+                                <Button Tag="📚" Click="EmojiButton_Click"><emoji:TextBlock Text="📚" FontSize="20"/></Button>
+                                <Button Tag="💻" Click="EmojiButton_Click"><emoji:TextBlock Text="💻" FontSize="20"/></Button>
+                                <Button Tag="🎮" Click="EmojiButton_Click"><emoji:TextBlock Text="🎮" FontSize="20"/></Button>
+                                <Button Tag="☕" Click="EmojiButton_Click"><emoji:TextBlock Text="☕" FontSize="20"/></Button>
                             </WrapPanel>
                         </ScrollViewer>
                     </Border>

@@ -15,6 +15,32 @@ using System.Collections.ObjectModel;
 
 namespace ChatClient
 {
+    public class StringToImageSourceConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is string path && !string.IsNullOrWhiteSpace(path))
+            {
+                try
+                {
+                    var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bmp.UriSource = new Uri(path, UriKind.RelativeOrAbsolute);
+                    bmp.EndInit();
+                    return bmp;
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     public class PendingAttachment
     {
         public string FilePath { get; set; } = string.Empty;
@@ -253,7 +279,7 @@ namespace ChatClient
             if (string.IsNullOrWhiteSpace(message) && imagesToSend.Count == 0)
                 return;
 
-            MessageTextBox.Clear();
+            MessageTextBox.Text = "";
             pendingAttachments.Clear();
             MessageTextBox.Focus();
             string time = DateTime.Now.ToString("HH:mm");
@@ -664,11 +690,11 @@ namespace ChatClient
 
         private void EmojiButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button)
+            if (sender is Button button && button.Tag != null)
             {
-                MessageTextBox.Text += button.Content.ToString();
+                MessageTextBox.Text += button.Tag.ToString();
                 MessageTextBox.Focus();
-                MessageTextBox.CaretIndex = MessageTextBox.Text.Length;
+                MessageTextBox.CaretPosition = MessageTextBox.Document.ContentEnd;
             }
         }
 
