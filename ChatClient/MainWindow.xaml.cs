@@ -698,13 +698,24 @@ namespace ChatClient
             }
         }
 
-        private async void MessageTextBox_KeyDown(object sender, KeyEventArgs e)
+        private async void MessageTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                await SendMessage();
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+                {
+                    // Nếu giữ Shift + nhấn Enter: Cho phép xuống dòng bình thường
+                    return; 
+                }
+                else
+                {
+                    // Nếu chỉ nhấn Enter: Chặn ngay việc tạo dòng mới và Gửi tin nhắn
+                    e.Handled = true; 
+                    await SendMessage();
+                }
             }
         }
+
 
         private void ImageButton_Click(object sender, RoutedEventArgs e)
         {
