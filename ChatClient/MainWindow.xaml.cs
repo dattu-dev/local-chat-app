@@ -32,7 +32,7 @@ namespace ChatClient
                 }
                 catch { }
             }
-            return null;
+            return DependencyProperty.UnsetValue;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
@@ -127,6 +127,7 @@ namespace ChatClient
         private Dictionary<string, ChatMessageItem> activeProgressItems = new Dictionary<string, ChatMessageItem>();
         private Dictionary<string, long> activeTotalBytes = new Dictionary<string, long>();
         private Dictionary<string, long> activeBytesReceived = new Dictionary<string, long>();
+        private Dictionary<string, double> activeLastUiPercentage = new Dictionary<string, double>();
 
         public MainWindow()
         {
@@ -333,8 +334,31 @@ namespace ChatClient
                                 int chunkSize = 512 * 1024; // 512 KB
                                 int totalChunks = (int)Math.Ceiling((double)fileSize / chunkSize);
 
-                                string txt = "";
                                 string fullMsgText = $"[{time}] {username}: ";
+
+                                // Create and add UI progress item locally BEFORE sending FILE_START
+                                Dispatcher.Invoke(() =>
+                                {
+                                    var progressItem = new ChatMessageItem
+                                    {
+                                        Text = fullMsgText,
+                                        FileName = attachment.FileName,
+                                        IsTransferring = true,
+                                        ProgressPercentage = 0,
+                                        ProgressText = $"0.00 / {(fileSize / 1048576.0):F2} MB",
+                                        Alignment = HorizontalAlignment.Right,
+                                        BackgroundColor = (SolidColorBrush)(new BrushConverter().ConvertFrom("#DCF8C6")!),
+                                        TextColor = Brushes.Black,
+                                        FilePath = attachment.FilePath
+                                    };
+                                    activeProgressItems[fileId] = progressItem;
+                                    activeTotalBytes[fileId] = fileSize;
+                                    activeBytesReceived[fileId] = 0;
+                                    activeLastUiPercentage[fileId] = 0;
+
+                                    ChatListBox.Items.Add(progressItem);
+                                    ChatListBox.ScrollIntoView(progressItem);
+                                });
 
                                 // Notify start
                                 await sendSemaphore.WaitAsync();
@@ -348,34 +372,71 @@ namespace ChatClient
                                     sendSemaphore.Release();
                                 }
 
-                                // Send chunks in parallel
-                                Parallel.For(0, totalChunks, new ParallelOptions { MaxDegreeOfParallelism = 2 }, chunkIndex =>
+                                // Send chunks sequentially
+                                using (var fs = new FileStream(attachment.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                                 {
-                                    byte[] chunk = new byte[chunkSize];
-                                    int bytesRead;
-                                    using (var fs = new FileStream(attachment.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                                    for (int chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++)
                                     {
+                                        byte[] chunk = new byte[chunkSize];
+                                        int bytesRead;
+
                                         fs.Seek(chunkIndex * (long)chunkSize, SeekOrigin.Begin);
-                                        bytesRead = fs.Read(chunk, 0, chunkSize);
-                                    }
+                                        bytesRead = await fs.ReadAsync(chunk, 0, chunkSize);
 
-                                    if (bytesRead < chunkSize)
-                                        Array.Resize(ref chunk, bytesRead);
+                                        if (bytesRead < chunkSize)
+                                            Array.Resize(ref chunk, bytesRead);
 
-                                    string base64Data = Convert.ToBase64String(chunk);
-                                    string chunkMsg = $"[FILE_CHUNK] {fileId}|{chunkIndex}|{base64Data}";
+                                        string base64Data = Convert.ToBase64String(chunk);
+                                        string chunkMsg = $"[FILE_CHUNK] {fileId}|{chunkIndex}|{base64Data}";
 
-                                    sendSemaphore.Wait();
-                                    try
-                                    {
-                                        writer.WriteLine(chunkMsg);
-                                        writer.Flush();
+                                        await sendSemaphore.WaitAsync();
+                                        try
+                                        {
+                                            await writer.WriteLineAsync(chunkMsg);
+                                            await writer.FlushAsync();
+                                        }
+                                        finally
+                                        {
+                                            sendSemaphore.Release();
+                                        }
+
+                                        // Local progress update for the sender (since chunks are not echoed back)
+                                        int sentBytes = bytesRead;
+                                        Dispatcher.InvokeAsync(() =>
+                                        {
+                                            if (activeProgressItems.TryGetValue(fileId, out var item))
+                                            {
+                                                long received;
+                                                lock (activeBytesReceived)
+                                                {
+                                                    activeBytesReceived[fileId] += sentBytes;
+                                                    received = activeBytesReceived[fileId];
+                                                }
+                                                long total = activeTotalBytes[fileId];
+
+                                                double newPercentage = (double)received / total * 100.0;
+                                                bool shouldUpdate = false;
+                                                lock (activeLastUiPercentage)
+                                                {
+                                                    if (activeLastUiPercentage.TryGetValue(fileId, out double lastPct))
+                                                    {
+                                                        if (newPercentage - lastPct >= 1.0 || newPercentage >= 100.0)
+                                                        {
+                                                            activeLastUiPercentage[fileId] = newPercentage;
+                                                            shouldUpdate = true;
+                                                        }
+                                                    }
+                                                }
+
+                                                if (shouldUpdate)
+                                                {
+                                                    item.ProgressPercentage = newPercentage;
+                                                    item.ProgressText = $"{(received / 1048576.0):F2} / {(total / 1048576.0):F2} MB";
+                                                }
+                                            }
+                                        });
                                     }
-                                    finally
-                                    {
-                                        sendSemaphore.Release();
-                                    }
-                                });
+                                }
 
                                 // Notify end
                                 await sendSemaphore.WaitAsync();
@@ -435,6 +496,13 @@ namespace ChatClient
 
                         bool isMyMessage = (senderName == username);
 
+                        // If this is my own message, I already created the progress item locally.
+                        // I do NOT need to create it again or setup download FileStream.
+                        if (isMyMessage)
+                        {
+                            continue;
+                        }
+
                         string displayTxt = "";
                         if (!string.IsNullOrEmpty(fullMsgText))
                         {
@@ -463,13 +531,14 @@ namespace ChatClient
                                 IsTransferring = true,
                                 ProgressPercentage = 0,
                                 ProgressText = $"0.00 / {(fileSize / 1048576.0):F2} MB",
-                                Alignment = isMyMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                                BackgroundColor = isMyMessage ? (SolidColorBrush)(new BrushConverter().ConvertFrom("#DCF8C6")!) : Brushes.White,
+                                Alignment = HorizontalAlignment.Left,
+                                BackgroundColor = Brushes.White,
                                 TextColor = Brushes.Black
                             };
                             activeProgressItems[fileId] = progressItem;
                             activeTotalBytes[fileId] = fileSize;
                             activeBytesReceived[fileId] = 0;
+                            activeLastUiPercentage[fileId] = 0;
                             
                             ChatListBox.Items.Add(progressItem);
                             ChatListBox.ScrollIntoView(progressItem);
@@ -484,31 +553,53 @@ namespace ChatClient
                         int chunkIndex = int.Parse(parts[1]);
                         string base64 = parts[2];
 
-                        if (activeDownloads.TryGetValue(fileId, out var fs))
+                        try
                         {
-                            byte[] bytes = Convert.FromBase64String(base64);
-                            lock (fs)
+                            if (activeDownloads.TryGetValue(fileId, out var fs))
                             {
-                                fs.Seek(chunkIndex * 512L * 1024L, SeekOrigin.Begin);
-                                fs.Write(bytes, 0, bytes.Length);
-                            }
+                                byte[] bytes = Convert.FromBase64String(base64);
+                                lock (fs)
+                                {
+                                    fs.Seek(chunkIndex * 512L * 1024L, SeekOrigin.Begin);
+                                    fs.Write(bytes, 0, bytes.Length);
+                                }
 
-                            if (activeProgressItems.ContainsKey(fileId))
-                            {
-                                activeBytesReceived[fileId] += bytes.Length;
-                                long received = activeBytesReceived[fileId];
+                                long received;
+                                lock (activeBytesReceived)
+                                {
+                                    activeBytesReceived[fileId] += bytes.Length;
+                                    received = activeBytesReceived[fileId];
+                                }
                                 long total = activeTotalBytes[fileId];
 
-                                Dispatcher.InvokeAsync(() =>
+                                double newPercentage = (double)received / total * 100.0;
+                                bool shouldUpdate = false;
+                                lock (activeLastUiPercentage)
                                 {
-                                    if (activeProgressItems.TryGetValue(fileId, out var item))
+                                    if (activeLastUiPercentage.TryGetValue(fileId, out double lastPct))
                                     {
-                                        item.ProgressPercentage = (double)received / total * 100.0;
-                                        item.ProgressText = $"{(received / 1048576.0):F2} / {(total / 1048576.0):F2} MB";
+                                        if (newPercentage - lastPct >= 1.0 || newPercentage >= 100.0)
+                                        {
+                                            activeLastUiPercentage[fileId] = newPercentage;
+                                            shouldUpdate = true;
+                                        }
                                     }
-                                });
+                                }
+
+                                if (shouldUpdate)
+                                {
+                                    Dispatcher.InvokeAsync(() =>
+                                    {
+                                        if (activeProgressItems.TryGetValue(fileId, out var item))
+                                        {
+                                            item.ProgressPercentage = newPercentage;
+                                            item.ProgressText = $"{(received / 1048576.0):F2} / {(total / 1048576.0):F2} MB";
+                                        }
+                                    });
+                                }
                             }
                         }
+                        catch { }
                         continue;
                     }
 
@@ -519,19 +610,20 @@ namespace ChatClient
                         bool isImage = bool.Parse(parts[1]);
                         string msgText = parts.Length > 2 ? parts[2] : "";
 
+                        int firstSpace = msgText.IndexOf(' ');
+                        int colonIndex = msgText.IndexOf(':', firstSpace);
+                        string senderName = msgText.Substring(firstSpace + 1, colonIndex - firstSpace - 1);
+                        bool isMyMessage = (senderName == username);
+                        string userText = msgText.Substring(colonIndex + 1).Trim();
+                        string displayTxt = string.IsNullOrEmpty(userText) ? "" : msgText;
+
+                        // Case 1: Active download FileStream exists (receiver side)
                         if (activeDownloads.TryGetValue(fileId, out var fs))
                         {
                             string filePath = fs.Name;
                             string fileName = Path.GetFileName(filePath).Substring(fileId.Length + 1); // Remove GUID_
                             fs.Close();
                             activeDownloads.Remove(fileId);
-
-                            int firstSpace = msgText.IndexOf(' ');
-                            int colonIndex = msgText.IndexOf(':', firstSpace);
-                            string senderName = msgText.Substring(firstSpace + 1, colonIndex - firstSpace - 1);
-                            bool isMyMessage = (senderName == username);
-                            string userText = msgText.Substring(colonIndex + 1).Trim();
-                            string displayTxt = string.IsNullOrEmpty(userText) ? "" : msgText;
 
                             Dispatcher.Invoke(() =>
                             {
@@ -546,21 +638,43 @@ namespace ChatClient
                                     activeProgressItems.Remove(fileId);
                                     activeTotalBytes.Remove(fileId);
                                     activeBytesReceived.Remove(fileId);
+                                    activeLastUiPercentage.Remove(fileId);
                                 }
                                 else
                                 {
                                     var newItem = new ChatMessageItem
                                     {
-                                        Text = userText,
+                                        Text = displayTxt,
                                         ImageSource = isImage ? filePath : string.Empty,
                                         FileName = isImage ? string.Empty : fileName,
                                         FilePath = filePath,
-                                        Alignment = isMyMessage ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                                        BackgroundColor = isMyMessage ? (SolidColorBrush)(new BrushConverter().ConvertFrom("#DCF8C6")!) : Brushes.White,
+                                        Alignment = HorizontalAlignment.Left,
+                                        BackgroundColor = Brushes.White,
                                         TextColor = Brushes.Black
                                     };
                                     ChatListBox.Items.Add(newItem);
                                     ChatListBox.ScrollIntoView(newItem);
+                                }
+                            });
+                        }
+                        // Case 2: No active download, but I am the sender, so I have the progress item in activeProgressItems
+                        else if (isMyMessage)
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                if (activeProgressItems.TryGetValue(fileId, out var item))
+                                {
+                                    item.IsTransferring = false;
+                                    item.Text = displayTxt;
+                                    
+                                    // Set image source or file properties using local path
+                                    item.ImageSource = isImage ? item.FilePath : string.Empty;
+                                    item.FileName = isImage ? string.Empty : Path.GetFileName(item.FilePath);
+
+                                    activeProgressItems.Remove(fileId);
+                                    activeTotalBytes.Remove(fileId);
+                                    activeBytesReceived.Remove(fileId);
+                                    activeLastUiPercentage.Remove(fileId);
                                 }
                             });
                         }

@@ -1,4 +1,3 @@
-﻿using System;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,10 +5,27 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Threading.Channels;
 
 class Program
 {
-    static List<TcpClient> clients = new List<TcpClient>();
+    class ClientConnection
+    {
+        public TcpClient Client { get; }
+        public Channel<byte[]> SendChannel { get; }
+
+        public ClientConnection(TcpClient client)
+        {
+            Client = client;
+            SendChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false
+            });
+        }
+    }
+
+    static List<ClientConnection> clients = new List<ClientConnection>();
 
     static async Task Main(string[] args)
     {
@@ -28,11 +44,17 @@ class Program
         while (true)
         {
             TcpClient client = await server.AcceptTcpClientAsync();
-            clients.Add(client);
+            var connection = new ClientConnection(client);
+            
+            lock (clients)
+            {
+                clients.Add(connection);
+            }
 
             Console.WriteLine($"New client connected. Total clients: {clients.Count}");
 
-            _ = HandleClient(client);
+            _ = HandleClient(connection);
+            _ = StartWriterLoop(connection);
         }
     }
 
@@ -43,7 +65,7 @@ class Program
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
             {
                 socket.Connect("8.8.8.8", 65432);
-                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                IPEndPoint? endPoint = socket.LocalEndPoint as IPEndPoint;
                 return endPoint?.Address.ToString();
             }
         }
@@ -63,8 +85,9 @@ class Program
         }
     }
 
-    static async Task HandleClient(TcpClient client)
+    static async Task HandleClient(ClientConnection connection)
     {
+        TcpClient client = connection.Client;
         try
         {
             NetworkStream stream = client.GetStream();
@@ -91,12 +114,50 @@ class Program
         }
         catch
         {
-            Console.WriteLine("Client disconnected.");
+            // Clean handling of client disconnection
         }
         finally
         {
-            clients.Remove(client);
+            Console.WriteLine("Client disconnected.");
+            connection.SendChannel.Writer.Complete();
+            lock (clients)
+            {
+                clients.Remove(connection);
+            }
             client.Close();
+        }
+    }
+
+    static async Task StartWriterLoop(ClientConnection connection)
+    {
+        try
+        {
+            NetworkStream stream = connection.Client.GetStream();
+            var reader = connection.SendChannel.Reader;
+
+            while (await reader.WaitToReadAsync())
+            {
+                while (reader.TryRead(out byte[]? buffer))
+                {
+                    if (buffer != null && connection.Client.Connected)
+                    {
+                        await stream.WriteAsync(buffer, 0, buffer.Length);
+                    }
+                }
+                await stream.FlushAsync();
+            }
+        }
+        catch
+        {
+            // Suppress writing errors on disconnected client
+        }
+        finally
+        {
+            lock (clients)
+            {
+                clients.Remove(connection);
+            }
+            try { connection.Client.Close(); } catch { }
         }
     }
 
@@ -104,25 +165,30 @@ class Program
     {
         byte[] buffer = System.Text.Encoding.UTF8.GetBytes(message + "\n");
 
-        foreach (TcpClient client in clients.ToArray())
+        ClientConnection[] activeClients;
+        lock (clients)
+        {
+            activeClients = clients.ToArray();
+        }
+
+        foreach (var connection in activeClients)
         {
             try
             {
-                if (client.Connected)
+                // Optimization: skip echoing large [FILE_CHUNK] packets back to the sender
+                if (message.StartsWith("[FILE_CHUNK] ") && connection.Client == sender)
                 {
-                    NetworkStream stream = client.GetStream();
-                    // Use lock to ensure thread safety when broadcasting parallel file chunks
-                    lock (client)
-                    {
-                        stream.Write(buffer, 0, buffer.Length);
-                        stream.Flush();
-                    }
+                    continue;
+                }
+
+                if (connection.Client.Connected)
+                {
+                    connection.SendChannel.Writer.TryWrite(buffer);
                 }
             }
             catch
             {
-                clients.Remove(client);
-                try { client.Close(); } catch { }
+                // Suppress queue errors
             }
         }
     }
